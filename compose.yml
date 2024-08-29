@@ -1,0 +1,32 @@
+services:
+  devops-toolkit:
+    image: tungbq/devops-toolkit:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/root
+    platform: linux/amd64
+    command: tail -f /dev/null
+    env_file:
+      - .env
+
+  pgsql_db:
+    image: postgres:${POSTGRES_VERSION}
+    container_name: ${CONTAINER_NAME}
+    command: -c 'config_file=/etc/postgresql/postgresql.conf'
+    hostname: ${HOSTNAME}
+    ports:
+      - "5432:5432"
+    restart: always
+    environment:
+      - POSTGRES_USER=${USER_NAME}
+      - POSTGRES_PASSWORD=${USER_PASS}
+    volumes:
+      - db_vol:/var/lib/postgresql/data
+      - ./docker/postgresql/postgresql.conf:/etc/postgresql/postgresql.conf
+    env_file:
+      - .env
+
+volumes:
+  db_vol:

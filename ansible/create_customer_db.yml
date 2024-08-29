@@ -1,0 +1,18 @@
+
+# create_customer_db.yml
+---
+- name: Create new customer databases
+  hosts: "{{ target_host }}"
+  connection: local
+  gather_facts: false
+
+  vars:
+    target_host: "{{ hostvars[inventory_hostname]['ansible_host'] }}"
+
+  tasks:
+    - name: Process all databases for the host
+      include_role:
+        name: create_db
+      vars:
+        target_db: "{{ item }}"
+      loop: "{{ hostvars[inventory_hostname]['dbs'] }}"

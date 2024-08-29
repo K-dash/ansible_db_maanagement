@@ -1,0 +1,53 @@
+---
+- name: Check if database exists
+  postgresql_query:
+    login_host: "{{ ansible_host }}"
+    login_user: "{{ postgres_user }}"
+    login_password: "{{ postgres_password }}"
+    db: postgres
+    query: "SELECT 1 FROM pg_database WHERE datname = '{{ target_db }}'"
+  register: db_exists
+
+- block:
+  - name: Copy database dump file from Ansible Control Server to DB server
+    copy:
+      src: "dump.sql"
+      dest: "/tmp/dump.sql"
+
+  - name: Create new database
+    postgresql_db:
+      name: "{{ target_db }}"
+      login_host: "{{ ansible_host }}"
+      login_user: "{{ postgres_user }}"
+      login_password: "{{ postgres_password }}"
+    register: db_creation
+
+  - name: Restore database from dump
+    command: >
+      psql 
+      -h {{ ansible_host }} 
+      -U {{ postgres_user }}
+      -d {{ target_db }}
+      -f /tmp/dump.sql
+    environment:
+      PGPASSWORD: "{{ postgres_password }}"
+    register: restore_result
+    changed_when: restore_result.rc == 0
+    failed_when: 
+      - restore_result.rc != 0
+      - "'ERROR:' in restore_result.stderr"
+    when: 
+      - db_creation is changed
+      - db_creation is success
+
+  - name: Remove temporary dump file
+    file:
+      path: "/tmp/dump.sql"
+      state: absent
+
+  - name: Fail if restore was unsuccessful
+    fail:
+      msg: "データベースの復元に失敗しました。エラー: {{ restore_result.stderr }}"
+    when: restore_result is failed
+
+  when: db_exists.rowcount == 0
